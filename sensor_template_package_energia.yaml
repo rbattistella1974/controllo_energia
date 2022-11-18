@@ -1,0 +1,100 @@
+homeassistant:
+  time_zone: Europe/Rome
+  customize:
+    package.node_anchors:
+      customize: &customize
+        package: 'Sensor Template'
+        author: 'Roberto Battistella'
+        reference: ' DOMUS batty '
+
+sensor:
+
+###################################################################################
+#                                                                                 #
+# Dichiarazione di un sensore denominato "fotovoltaico_produzione" che visualizza #
+# la produzione istantanea dei pannelli fotovoltaici.                             #
+# IL sensore di riferimento per la misura è "prod_fv_power" (canale_2 Shelly_EM). #
+# IL calcolo è poi completato con l'eccezzione che se il sensore "prod_fv_power"  #
+# misura una potenza inferiore a 5W, il sensore 'fotovoltaico_produzione' viene   #
+# impostato al valore fisso di 0.0W                                               #
+#                                                                                 #
+###################################################################################
+
+  - platform: template
+    sensors:
+      fotovoltaico_produzione:
+        unit_of_measurement: W
+        value_template: >-
+          {% if (states('sensor.prod_fv_power') | float (default=0.0)  ) > 5.0|float (default=0.0) %}
+            {{ states.sensor.prod_fv_power.state }}
+          {% else %}
+            0.0
+          {% endif %}
+        friendly_name: 'Fotovoltaico produzione'
+
+#############################################################################################################
+#                                                                                                           #
+# Dichiarazione di un sensore denominato "prelievo_istantaneo_da_rete" che visualizza                       #
+# il prelievo istantaneo dalla rete elettrica di fornitura.                                                 #
+# IL sensore di riferimento per la misura è "rete_enel_power" (canale_1 Shelly_EM).                         #
+# IL calcolo è completato con l'eccezzione che se il sensore "rete_enel_power" misura una potenza positiva, #
+# allora viene restituito il dato al sensore "prelievo_istantaneo_da_rete",                                 #
+# se invece il sensore "rete_enel_power" misura una potenza negativa,                                       #
+# allora viene restituito il valore zero al sensore "prelievo_istantaneo_da_rete".                          #
+#                                                                                                           #
+#############################################################################################################
+
+  - platform: template
+    sensors:
+      prelievo_istantaneo_da_rete:
+        unit_of_measurement: W
+        value_template: >-
+          {% if (states('sensor.rete_enel_power') | float (default=0.0)  ) > 0.0|float (default=0.0) %}
+            {{ states.sensor.rete_enel_power.state }}
+          {% else %}
+            0.0
+          {% endif %}
+        friendly_name: 'Prelievo istantaneo da rete'
+        
+################################################################################################
+#                                                                                              #
+# Dichiarazione di un sensore denominato "consumo_istantaneo_casa" che visualizza              #
+# il consumo istantaneo della casa.                                                            #
+# I sensorI di riferimento per la misura sono : "rete_enel_power" e "prod_fv_power"            #
+# IL calcolo matematico, sottrazione tra i due, fornisce il valore di consumo istantaneo casa. #
+# IL risultato del calcolo matematico viene trasferito al sensore "consumo_istantaneo_casa".   #
+#                                                                                              #
+################################################################################################
+
+  - platform: template
+    sensors:
+      consumo_istantaneo_casa:
+        friendly_name: 'Consumo istantaneo casa'
+        unit_of_measurement: W
+        value_template: >-
+         {{ (((states.sensor.prod_fv_power.state|float(default=0.0)) - (states.sensor.rete_enel_power.state|float(default=00.0)) * -1 )) | round(1, default=0.0) }}
+        icon_template: 'mdi:flash'
+
+#############################################################################################################
+#                                                                                                           #
+# Dichiarazione di un sensore denominato "return_istantanea_in_rete" che visualizza                         #
+# l'immissione istantanea, dell'eccedenza produzione fotovoltaico, nella rete elettrica di fornitura.       #
+# IL sensore di riferimento per la misura è "rete_enel_power" (canale_1 Shelly_EM).                         #
+# IL calcolo è completato con l'eccezzione che se il sensore "rete_enel_power" misura una potenza negativa, #
+# allora viene restituito il dato, positivo, al sensore "return_istantanea_in_rete",                        #
+# se invece il sensore "rete_enel_power" misura una potenza positiva,                                       #
+# allora viene restituito il valore zero al sensore "return_istantanea_in_rete".                            #
+#                                                                                                           #
+#############################################################################################################
+
+  - platform: template
+    sensors:
+      return_istantanea_in_rete:
+        unit_of_measurement: W
+        value_template: >-
+          {% if (states('sensor.rete_enel_power') | float (default=0.0)  ) < 0.0|float (default=0.0) %}
+            {{ states.sensor.rete_enel_power.state | float(default=0.0) * -1 | round(1, default=0.0)}}
+          {% else %}
+            0.0
+          {% endif %}
+        friendly_name: 'Immissione istantanea in rete'        
